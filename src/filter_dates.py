@@ -2,11 +2,17 @@ import csv
 import os
 
 # store the current path of this file, to be able to read relative location of scanned csv files later
-script_dir = os.path.dirname(__file__)
+script_dir = os.path.dirname(os.getcwd())
 
 
 cities_dict = {}
 
+
+def get_cities_dict():
+    return cities_dict
+
+def store_tract_id(listing_file):
+    pass
 
 
 
@@ -21,8 +27,8 @@ def read_reviews(city_file):
     Parameters: 
         city_file (str): string format of csv file name being processed, in this case the reviews.csv file of each city renamed to {city_name}_reviews.csv
 
-    Returns:
-        years_dict (dictionary): dictionary containing the years of the city being processed as keys and months as list of values 
+    Return:
+        years_dict (dictionary): dictionary containing the years of the city being processed as keys and months with the corresponding listing id as a list of tuple values, ex: { 2018 : [(01, 5487182381), (05, 523315325), ...]}
     '''
     with open(os.path.join(script_dir, city_file), "r") as file: # since all the csv files will be in the same folder as this module, get relative path of csv file
         city_name = city_file.split("-")[0] # retrieve the name of the city being processed from the csv file name, such as seattle from seattle_reviews.csv
@@ -35,10 +41,10 @@ def read_reviews(city_file):
                 y_m_d = row[2].split("-") # split the dates into year, month and day according to isoformat
                 # store the month corresponding to each year of the review
                 if years_dict.get(y_m_d[0]) == None:
-                    years_dict[y_m_d[0]] = []  
-                    years_dict[y_m_d[0]].append(y_m_d[1])
-                if years_dict.get(y_m_d[0]) != None:
-                    years_dict[y_m_d[0]].append(y_m_d[1])
+                    years_dict[y_m_d[0]] = []  # create a new list if one doesn't exist to store the listing id together with month 
+                    years_dict[y_m_d[0]].append((y_m_d[1], row[0])) #store the month as a tuple with the listing id
+                else:
+                    years_dict[y_m_d[0]].append((y_m_d[1], row[0])) #store the month as a tuple with the listing id 
             except ValueError:
                 print(f'Could not parse the date for the row with id {row[0]}')
         # now to filter the years as we need only the data from 2018 - 2022
@@ -48,7 +54,5 @@ def read_reviews(city_file):
     return years_dict
 
 
-seattle_years = read_reviews("./csv_files/seattle_reviews.csv")
-
-print(seattle_years.keys())
+seattle_years = read_reviews("fyp/csv_files/seattle_reviews.csv")
 
