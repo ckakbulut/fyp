@@ -1,5 +1,6 @@
 import csv
 import os
+import requests
 
 # store the current path of this file, to be able to read relative location of scanned csv files later
 script_dir = os.path.dirname(os.getcwd())
@@ -8,11 +9,28 @@ script_dir = os.path.dirname(os.getcwd())
 cities_dict = {}
 
 
+
+# 6 and 7 are the latitude and longitude
+
 def get_cities_dict():
     return cities_dict
 
 def store_tract_id(listing_file):
-    pass
+    tract_dict = {}
+    with open(os.path.join(script_dir, listing_file), "r") as listings:
+        listing_reader = csv.reader(listings)
+        listing_reader.__next__()
+        for row in listing_reader:
+            try:
+                listing_id, lat, lng = row[0], row[6], row[7]
+                # TO DO OVER HERE
+            except:
+                print(f"Could not parse the row with id {row[0]}")
+
+    return tract_dict
+        
+        
+
 
 
 
@@ -55,4 +73,5 @@ def read_reviews(city_file):
 
 
 seattle_years = read_reviews("fyp/csv_files/seattle_reviews.csv")
+print(nyc_tracts := store_tract_id("fyp/csv_files/nyc_listings.csv"))
 
