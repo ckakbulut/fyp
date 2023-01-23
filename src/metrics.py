@@ -40,7 +40,7 @@ def total_reviews_per_month(df):
         for year in tract_df.columns:
             plt.errorbar(tract_df.index, tract_df[year], yerr=tract_df[year].sem(), capsize=5, capthick=2, label=year, ecolor='gray')
         
-        plt.title(f'Monthly Count for Tract Code {code}')
+        plt.title(f'Monthly Review Count for Tract Code {code}')
         plt.legend(title="Years")
         #plt.show()
         #plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
@@ -61,9 +61,9 @@ def total_reviews_per_year(df):
         plt.errorbar(tract_df.index, tract_df, yerr=tract_df.sem(), fmt='-o', capsize=5, capthick=2)
         plt.xlim((2017.5, 2022.5))
         plt.ylim(bottom=0)
-        plt.title(f'Review Count for Tract Code {code}')
+        plt.title(f'Yearly Review Count for Tract Code {code}')
         #plt.show()
-        #plt.savefig(f'{code}.svg', format='svg', bbox_inches='tight')
+        plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
         plt.close()
     
 
@@ -80,8 +80,9 @@ def cumulative_reviews_per_month(df):
         plt.figure()
         tract_review_count = review_count.loc[code]
         tract_review_count.plot(xlabel='Month-Year', ylabel='Cumulative Review Count', title=f'Monthly Cumulative Reviews for Tract Code {code}')
+        plt.xlim(('2018-01', '2022-09'))
         #plt.show()
-        #plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
+        plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
         plt.close()
 
 def cumulative_reviews_per_year(df):
@@ -121,6 +122,6 @@ if __name__ == "__main__":
     reviews_df = separate_dates(argv[1])
     listings_df = pd.read_csv(argv[2])
     #total_reviews_per_month(reviews_df)
-    #total_reviews_per_year(reviews_df)
+    total_reviews_per_year(reviews_df)
     #cumulative_reviews_per_month(reviews_df)
-    cumulative_reviews_per_year(reviews_df)
+    #cumulative_reviews_per_year(reviews_df)
