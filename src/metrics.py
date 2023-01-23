@@ -42,8 +42,8 @@ def total_reviews_per_month(df):
         
         plt.title(f'Monthly Count for Tract Code {code}')
         plt.legend(title="Years")
-        plt.savefig(f'{code}.svg', format='svg', bbox_inches='tight')
         #plt.show()
+        #plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
         plt.close()
 
 
@@ -63,7 +63,7 @@ def total_reviews_per_year(df):
         plt.ylim(bottom=0)
         plt.title(f'Review Count for Tract Code {code}')
         #plt.show()
-        plt.savefig(f'{code}.svg', format='svg', bbox_inches='tight')
+        #plt.savefig(f'{code}.svg', format='svg', bbox_inches='tight')
         plt.close()
     
 
@@ -77,13 +77,36 @@ def cumulative_reviews_per_month(df):
 
     # Plot the cumulative review count per month-year for each unique tract code
     for code in df['tract_code'].unique():
+        plt.figure()
         tract_review_count = review_count.loc[code]
         tract_review_count.plot(xlabel='Month-Year', ylabel='Cumulative Review Count', title=f'Monthly Cumulative Reviews for Tract Code {code}')
         #plt.show()
-        plt.savefig(f'{code}.svg', format='svg', bbox_inches='tight')
+        #plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
+        plt.close()
 
 def cumulative_reviews_per_year(df):
-    pass
+    # Group dataframe by 'tract_code' and 'year'
+    reviews_by_tract = df.groupby(['tract_code', 'year']).size()
+
+    # Calculate cumulative sum of reviews
+    reviews_by_tract = reviews_by_tract.groupby(level=[0]).cumsum()
+
+    # Reshape dataframe so that rows are time period (year) and columns are 'tract_code'
+    reviews_by_tract = reviews_by_tract.reset_index()
+    reviews_by_tract = reviews_by_tract.pivot_table(index=['year'], columns='tract_code', values=0)
+    reviews_by_tract = reviews_by_tract.fillna(0) # replace NaN with 0 for months that don't have any reviews
+
+    # Create line plot for each 'tract_code'
+    for tract_code in reviews_by_tract.columns:
+        plt.figure()
+        reviews_by_tract[tract_code].plot(title=f'Yearly Cumulative Reviews for Tract Code {tract_code}')
+        plt.xlabel('Time (year)')
+        plt.ylabel('Cumulative Reviews')
+        plt.xlim((2017.5, 2022.5))
+        plt.ylim(bottom=0)
+        #plt.show()
+        #plt.savefig(f'{tract_code}.png', format='png', bbox_inches='tight')
+        plt.close()
 
 def new_listings_per_month(df):
     pass
@@ -99,4 +122,5 @@ if __name__ == "__main__":
     listings_df = pd.read_csv(argv[2])
     #total_reviews_per_month(reviews_df)
     #total_reviews_per_year(reviews_df)
-    cumulative_reviews_per_month(reviews_df)
+    #cumulative_reviews_per_month(reviews_df)
+    cumulative_reviews_per_year(reviews_df)
