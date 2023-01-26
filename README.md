@@ -10,7 +10,16 @@ The metrics I will be using for my project are as follows:
 
 # Files
 
-There are currently **4** files I'm using. These are used to:
+The two files necessary to complete data analsysis can be obtained from the Insideairbnb website:
+
+http://insideairbnb.com/get-the-data/
+
+The two files that are necessary for gathering data are:
+
+- **reviews.csv**
+- **listings_detailed.csv**
+
+There are currently **4** source files I'm using. These are used to:
 
 - Filter the date ranges for a given csv file from 2018 to 2022
 - Recover the census tract code for a given listing using the US FCC API.
