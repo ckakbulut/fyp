@@ -1,0 +1,26 @@
+Name: Can Kerem Akbulut
+
+Project Title, October Project Plan: Predictive Analysis of Airbnb Resilience using AI Modelling
+
+Project Title (Current): Predictive Analysis of Airbnb Resilience in US Cities using AI Modelling
+
+Internal Supervisor: Licia Capra
+
+Progress Made to Date:
+
+Since the beginning of term 1, I have held semi-regular meetings every Thursday with my project supervisor, Licia Capra, to discuss and outline the steps of my project. 
+
+I initially started with data preparation, gathering Airbnb usage data for 32 US cities, and also collected US Tract and US census data per the reference paper “Analysing and predicting the spatial penetration of Airbnb in U.S. cities” [1]. The Airbnb data covers four separate periods: Jan 2018 to Dec 2019 (2 years of pre-covid activity), Jan 2020 to Dec 2020 (1 year of likely stop), Jan 2021 to Dec 2021 ( 1 year of likely recovery state) and Jan 2022 to Sep 2022 (9 months of post-covid / expected steady state). I took Sep 2022 as my last reference month as the data scraped by Inside Airbnb, which is where I obtained my Airbnb metrics from, was last updated for reviews and listings on September 18, 2022. The Python code I’ve written is structured in a way to make it easier to update and filter any new data if such data or new metrics are uploaded on the Inside Airbnb website. 
+
+After obtaining this data, I was able to perform several operations and modifications on it using Python and the Pandas framework. Using the two different .csv files obtained from Inside Airbnb, namely listings_detailed.csv and reviews.csv, I was able to identify unique listings made in a per city basis, geolocate these listings to the appropriate US census tract (using the 9-digit FIPS census tract code for each tract), and store how many listings were made available each month/year. These metrics include new listings/hosts per month per year, new listings/hosts per tract per year, cumulative listings per tract per month/year and date of last review for a listing, effectively marking the a time period between the first and last review for a listing to measure how "active" the tract is (which I will then use in measuring the different resilience of US tracts).  
+
+I then used this data in plotting time series for each city with average metric value over tracts for that city plus error bars, which will help to visualise variance among areas within the same city. Likewise, I attempted to plot choropleth maps per city/metric using the abovementioned, pre-covid, during covid, and post-covid periods, but will require a bit more time on that as I am currently working on it.
+
+The remaining steps work to be done before the final report deadline
+
+The next steps, until the end of the project, will involve the definition of metrics of resilience, where the two main metrics of interest as we’ve defined with my supervisor are number of reviews and number of new hosts. These can potentially be added onto, depending on the scope of my project and the remaining time allows for a more in-depth analysis within the project. Afterwards, I will be moving on to the main bulk of the project: building models to explain resilience. These models can be spatial regressions, cellular automata, or any other models that I see fit according to my dataset. I am planning to do some research on which models would be most appropriate, and I predict using Python’s scikit library will help me analyse and train the model I create using the data I gathered. I will be using explanatory/independent variables, such as past values of Airbnb activity (for the same and surrounding areas in a city) plus contextual variables such as geography, socio-economic status, and other data gathered from census data. In this, papers such as “Modelling growth of urban crowd-sourced information” [2] and “Social capital I: measurement and associations with economic mobility” [3] will be of use in defining social connectedness and how different communities may have different levels of Airbnb resilience due to contextual factors. Using the same methodology for my previous Python code of approaching one city at a time, I will be working with one US city at a time and processing data temporally, using 2018/2019 as control and 2021/2022 as study. The final step of my project will be training a model on one city and analysing whether I can predict “resilience” in another, aiming to produce a generalisable model that can use similar metrics to predict resilience one country at a time. This would also allow me to optionally expand to other, non-US, cities, and check whether “patterns of resilience” emerge among different cities. 
+
+One important factor to take into account is the time it takes to complete the writing of my report - it will be easier once I paint a clearer image of what results I can obtain from my data. Taking into account the length of the report, I will be using this term to also type up my report in my free time, which should come naturally as I progress along with my modelling and analysis. 
+
+
+
