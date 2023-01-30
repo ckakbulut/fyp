@@ -26,3 +26,5 @@ if __name__ == "__main__":
     #total_reviews_per_year(reviews_df)
     #cumulative_reviews_per_month(reviews_df)
     #cumulative_reviews_per_year(reviews_df)
+    pass
+
