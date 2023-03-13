@@ -1,8 +1,10 @@
 import pandas as pd 
 import matplotlib.pyplot as plt
-import numpy as np
-import geopandas as gpd
 from sys import argv
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from datetime import datetime
 
 '''
 This program takes in the edited listings and reviews files,
@@ -31,9 +33,7 @@ def total_reviews_per_month(df):
     # Plot a line graph for each unique tract_code
     for code in df['tract_code'].unique():
         plt.figure()
-        #errors = reviews_count.loc[code].std(axis=1) # axis=1 means get std() using columns (across years for each month)
         tract_df = reviews_count.loc[code]
-        #tract_df.plot(title=f'Tract = {code}')
         plt.xlabel('Time (Months)')
         plt.ylabel('Monthly Review Count')
         for year in tract_df.columns:
@@ -64,49 +64,140 @@ def total_reviews_per_year(df):
         #plt.show()
         plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
         plt.close()
+
+def count_reviews_per_month(start_date, end_date, df):
+    # convert start_date and end_date to datetime objects
+    start_date = datetime.fromisoformat(start_date)
+    end_date = datetime.fromisoformat(end_date)
     
+    # create a new dataframe with date as the index and count as the column
+    date_range = pd.date_range(start=start_date, end=end_date, freq='MS')
+    counts_df = pd.DataFrame(index=date_range, columns=['count'])
+    
+    # iterate through each month and count the number of reviews
+    for month_start in date_range:
+        month_end = month_start + pd.offsets.MonthEnd(0)
+        month_count = len(df[(df['date'] >= month_start) & (df['date'] <= month_end)])
+        counts_df.loc[month_start, 'count'] = month_count
+    
+    # create a new dataframe to store the slope for each tract
+    slopes_df = pd.DataFrame(columns=['tract_code', 'slope'])
+    
+    # iterate through each tract and plot the line of best fit
+    for tract in df['tract_code'].unique():
+        tract_df = df[df['tract_code'] == tract]
+        
+        # create a new dataframe with date as the index and count as the column
+        date_range = pd.date_range(start=start_date, end=end_date, freq='MS')
+        counts_df = pd.DataFrame(index=date_range, columns=['count'])
+        
+        # iterate through each month and count the number of reviews
+        for month_start in date_range:
+            month_end = month_start + pd.offsets.MonthEnd(0)
+            month_count = len(tract_df[(tract_df['date'] >= month_start) & (tract_df['date'] <= month_end)])
+            counts_df.loc[month_start, 'count'] = month_count
 
-def cumulative_reviews_per_month(df):
-    # Create a new dataframe with a month-year column
-    df['month_year'] = df['year'].astype(str) + '-' + df['month'].astype(str)
 
-    # Count the cumulative amount of reviews per month-year for each unique tract code
-    review_count = df.groupby(['tract_code', 'month_year']).size().groupby(level=0).cumsum()
-    review_count = review_count.fillna(0) # replace NaN with 0 for months that don't have any reviews
+        # store the dates in ISO format before converting them to ordinal which will be used to label the x-axis on the plot
+        plot_X = counts_df.index
 
-    # Plot the cumulative review count per month-year for each unique tract code
-    for code in df['tract_code'].unique():
-        plt.figure()
-        tract_review_count = review_count.loc[code]
-        tract_review_count.plot(xlabel='Month-Year', ylabel='Cumulative Review Count', title=f'Monthly Cumulative Reviews for Tract Code {code}')
-        plt.xlim(('2018-01', '2022-09'))
-        #plt.show()
-        plt.savefig(f'{code}.png', format='png', bbox_inches='tight')
-        plt.close()
+        # convert the dates to ordinal in order to be able to use them in the linear regression
+        counts_df.index = pd.to_datetime(counts_df.index)
+        counts_df.index = counts_df.index.map(datetime.toordinal)
 
-def cumulative_reviews_per_year(df):
-    # Group dataframe by 'tract_code' and 'year'
-    reviews_by_tract = df.groupby(['tract_code', 'year']).size()
+        # fit a linear regression to the counts_df
+        X = counts_df.index.values.reshape(-1, 1)
+        y = counts_df['count'].values.reshape(-1,1)
+        lr = LinearRegression().fit(X, y)
+        
+        # plot the line of best fit
+        plt.plot(plot_X, lr.predict(X), label=f'Tract {tract}')
+        print("INTERCEPT IS: ", lr.intercept_)
+        print("The ordinal times are: ", counts_df.index)
+        print("The y values are: ", lr.predict(X))
+        print("Score is ", lr.score(X, y))
+        
+        # store the slope in the slopes_df
+        slopes_df = slopes_df.append({'tract_code': tract, 'slope': lr.coef_[0][0]}, ignore_index=True)
+    
+    # set the x-axis label and legend
+    plt.xlabel('Date')
+    plt.legend()
+    
+    # show the plot
+    plt.show()
+    
+    # return the slopes_df
+    return slopes_df
 
-    # Calculate cumulative sum of reviews
-    reviews_by_tract = reviews_by_tract.groupby(level=[0]).cumsum()
+def sample1(start_date, end_date, df):
+    # convert start_date and end_date to datetime objects
+    start_date = datetime.fromisoformat(start_date)
+    end_date = datetime.fromisoformat(end_date)
+    
+    # create a new dataframe with date as the index and count as the column
+    date_range = pd.date_range(start=start_date, end=end_date, freq='MS')
+    counts_df = pd.DataFrame(index=date_range, columns=['count'])
+    
+    # iterate through each month and count the number of reviews for ALL THE TRACTS
+    for month_start in date_range:
+        month_end = month_start + pd.offsets.MonthEnd(0)
+        month_count = len(df[(df['date'] >= month_start) & (df['date'] <= month_end)])
+        counts_df.loc[month_start, 'count'] = month_count
+    
+    # create a new dataframe to store the slope for each tract
+    slopes_df = pd.DataFrame(columns=['tract_code', 'slope'])
+    
+    # iterate through each tract and plot the line of best fit
+    counter = 0
+    for tract in df['tract_code'].unique():
+        if(counter == 1):
+            break
+        counter += 1
+        tract_df = df[df['tract_code'] == tract]
+        
+        # create a new dataframe with date as the index and count as the column
+        date_range = pd.date_range(start=start_date, end=end_date, freq='MS')
+        counts_df = pd.DataFrame(index=date_range, columns=['count'])
+        
+        # iterate through each month and count the number of reviews
+        for month_start in date_range:
+            month_end = month_start + pd.offsets.MonthEnd(0)
+            month_count = len(tract_df[(tract_df['date'] >= month_start) & (tract_df['date'] <= month_end)])
+            counts_df.loc[month_start, 'count'] = month_count
 
-    # Reshape dataframe so that rows are time period (year) and columns are 'tract_code'
-    reviews_by_tract = reviews_by_tract.reset_index()
-    reviews_by_tract = reviews_by_tract.pivot_table(index=['year'], columns='tract_code', values=0)
-    reviews_by_tract = reviews_by_tract.fillna(0) # replace NaN with 0 for months that don't have any reviews
 
-    # Create line plot for each 'tract_code'
-    for tract_code in reviews_by_tract.columns:
-        plt.figure()
-        reviews_by_tract[tract_code].plot(title=f'Yearly Cumulative Reviews for Tract Code {tract_code}')
-        plt.xlabel('Time (year)')
-        plt.ylabel('Cumulative Reviews')
-        plt.xlim((2017.5, 2022.5))
-        plt.ylim(bottom=0)
-        #plt.show()
-        #plt.savefig(f'{tract_code}.png', format='png', bbox_inches='tight')
-        plt.close()
+        # store the dates in ISO format before converting them to ordinal which will be used to label the x-axis on the plot
+        plot_X = counts_df.index
+
+        # convert the dates to ordinal in order to be able to use them in the linear regression
+        counts_df.index = pd.to_datetime(counts_df.index)
+        counts_df.index = counts_df.index.map(datetime.toordinal)
+
+        # fit a linear regression to the counts_df
+        X = counts_df.index.values.reshape(-1, 1)
+        y = counts_df['count'].values.reshape(-1,1)
+        lr = LinearRegression().fit(X, y)
+        
+        # plot the line of best fit
+        plt.plot(plot_X, lr.predict(X), label=f'Tract {tract}')
+        print("INTERCEPT IS: ", lr.intercept_)
+        print("The ordinal times are: ", counts_df.index)
+        print("The y values are: ", lr.predict(X))
+        print("Score is ", lr.score(X, y))
+        
+        # store the slope in the slopes_df
+        slopes_df = slopes_df.append({'tract_code': tract, 'slope': lr.coef_[0][0]}, ignore_index=True)
+    
+    # set the x-axis label and legend
+    plt.xlabel('Date')
+    plt.legend()
+    
+    # show the plot
+    plt.show()
+    
+    # return the slopes_df
+    return slopes_df
 
 def new_listings_per_month(df):
     pass
@@ -118,9 +209,16 @@ def new_listings_per_year(df):
 
 
 if __name__ == "__main__":
+    pd.set_option('display.max_rows', 500)
+    pd.set_option('display.max_columns', 500)
+    pd.set_option('display.width', 150)
+    pd.set_option('display.float_format', lambda x: '%.0f' % x if x.name == 'tract_code' else '%.6f' % x)
     reviews_df = separate_dates(argv[1])
-    listings_df = pd.read_csv(argv[2])
     #total_reviews_per_month(reviews_df)
-    total_reviews_per_year(reviews_df)
+    #slopes_df = sample1('2022-03-01', '2022-08-01', reviews_df)
+    slopes_df = count_reviews_per_month('2021-03-01', '2022-08-01', reviews_df)
+    print(slopes_df)
+    print(slopes_df['slope'].max())
+    #total_reviews_per_year(reviews_df)
     #cumulative_reviews_per_month(reviews_df)
     #cumulative_reviews_per_year(reviews_df)
