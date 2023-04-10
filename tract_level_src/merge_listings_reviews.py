@@ -4,7 +4,7 @@ from sys import argv
 # Read in the CSV files as DataFrames
 def merged_csv(listings, reviews):
 	# read in both csv files
-	listings_df = pd.read_csv(listings)
+	listings_df = pd.read_csv(listings, converters={'tract_code': str})
 	reviews_df = pd.read_csv(reviews)
 	
 	# merge the two DataFrames on the 'id' column
