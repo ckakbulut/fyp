@@ -1,6 +1,5 @@
 import pandas as pd
 import re
-from sys import argv
 
 # auxiliary function to add zeros in filling the FIPS code for census data columns containing tract codes
 def fill_zeros(string, length):
@@ -38,13 +37,14 @@ def rename_census_data_columns(df, county_code):
     return df
 
 def single_row_data(filename, county_code):
+    # used in extracting data from census files where the required data is present in a single row in the downloaded csv file (such as median property value)
 
     df = pd.read_csv(filename)
 
     # store the columns 
     columns = df.columns
 
-    # for each column name, remove any non digit characters
+    # for each column name, remove any non digit and non decimal point characters to only be left with the tract code
     df.columns = [re.sub("[^0-9\.]", "", col) for col in columns]
 
     # if the column name doesn't contain a dot, add two zeros at the end as described in this article
@@ -70,6 +70,7 @@ def median_age_data(filename, county_code):
 
     df = pd.read_csv(filename)
 
+    # return the row containing the median age data for the total population (all genders)
     df = df.iloc[[1]]
 
     rename_census_data_columns(df, county_code)
@@ -96,15 +97,18 @@ def age_data(filename, county_code):
     # strip the index (the labels) of any whitespace (caused due to indentation in the csv file)
     df.index = df.index.str.strip()
 
-    # rename according to county code
+    # rename columns according to county code (to get the full 11 digit FIPS code)
     rename_census_data_columns(df, county_code)
 
     # get the sum of the 20 to 34 year olds (young people)
     df = df.loc[['20 to 24 years', '25 to 29 years', '30 to 34 years']]
 
+    # divide by 100 to get the percentage as a decimal value
     df = df.apply(lambda col: col.str.extract(r'(\d+\.\d+)%').astype(float).sum()) / 100
 
-    return df.transpose()
+    df = df.transpose()
+
+    return df
 
 
 def educational_attainment_data(filename, county_code):
@@ -118,8 +122,10 @@ def educational_attainment_data(filename, county_code):
     # make the first column the index
     df = df.set_index(df.columns[0])
 
+    # strip the index (the labels) of any whitespace (caused due to indentation in the csv file)
     df.index = df.index.str.strip()
 
+    # rename columns according to county code (to get the full 11 digit FIPS code)
     rename_census_data_columns(df, county_code)
 
     divide_total = df.loc[['Population 18 to 24 years', 'Population 25 years and over']]
@@ -191,7 +197,7 @@ def race_diversity_data(filename, county_code):
 
     df.index = df.index.str.strip()
 
-    # delete the row with lavel "Not Hispanic or Latino" to make dataframe processing for Simpson diversity index easier
+    # delete the row with label "Not Hispanic or Latino" to make dataframe processing for Simpson diversity index easier
     df = df.drop("Not Hispanic or Latino:", axis=0)
 
     # delete any rows that do not contain relevant information (such as indicating total population for x amount of races)
@@ -233,7 +239,7 @@ def race_diversity_data(filename, county_code):
 
 if __name__ == "__main__":
     age_data('~/Desktop/seattle_census_data/seattle_age.csv', '53033')
-    educational_attainment_data('~/Desktop/seattle_census_data/seattle_educational_attainment.csv', '53033')
-    percentage_poverty_data('~/Desktop/seattle_census_data/seattle_percent_poverty.csv', '53033')
-    unemployment_rate_data('~/Desktop/seattle_census_data/seattle_unemployment.csv', '53033')
-    race_diversity_data('~/Desktop/seattle_census_data/seattle_race.csv', '53033')
+    #educational_attainment_data('~/Desktop/seattle_census_data/seattle_educational_attainment.csv', '53033')
+    #percentage_poverty_data('~/Desktop/seattle_census_data/seattle_percent_poverty.csv', '53033')
+    #unemployment_rate_data('~/Desktop/seattle_census_data/seattle_unemployment.csv', '53033')
+    #race_diversity_data('~/Desktop/seattle_census_data/seattle_race.csv', '53033')

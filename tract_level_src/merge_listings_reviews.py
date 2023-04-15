@@ -7,7 +7,7 @@ def merged_csv(listings, reviews):
 	listings_df = pd.read_csv(listings, converters={'tract_code': str})
 	reviews_df = pd.read_csv(reviews)
 	
-	# merge the two DataFrames on the 'id' column
+	# merge the two DataFrames on the 'listings_id' and 'id' columns, which correspond to each other in the different csv files
 	merged_df = pd.merge(reviews_df, listings_df, left_on='listing_id', right_on='id')
 	
 	# add 'tract_code' column to reviews_df
