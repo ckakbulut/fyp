@@ -30,9 +30,6 @@ def rename_census_data_columns(df, county_code):
 
     # add the county code to the front of the column name to get the full 11 digits FIPS code
     df.columns = [county_code + col for col in df.columns]
-    
-    # transpose the dataframe so that the tract codes are the index
-    #df = df.T
 
     return df
 
@@ -63,6 +60,9 @@ def single_row_data(filename, county_code):
     # transpose the dataframe so that the tract codes are the index
     df = df.transpose()
 
+    # drop all rows that contain the value 0 as we can infer they contain missing information
+    df = df[df[0] != 0.0]
+
     return df
 
 
@@ -79,6 +79,9 @@ def median_age_data(filename, county_code):
 
     # rename the column to 0 so that it can be renamed to median age in metrics.py 
     df.rename(columns={1: 0}, inplace=True)
+
+    # drop all rows that contain the value 0 as we can infer they contain missing information
+    df = df[df[0] != 0.0]
 
     return df
 
@@ -107,6 +110,9 @@ def age_data(filename, county_code):
     df = df.apply(lambda col: col.str.extract(r'(\d+\.\d+)%').astype(float).sum()) / 100
 
     df = df.transpose()
+
+    # drop all rows that contain the value 0 as we can infer they contain missing information
+    df = df[df[0] != 0.0]
 
     return df
 
@@ -139,7 +145,11 @@ def educational_attainment_data(filename, county_code):
     # get the percentage of people with a bachelor's degree or higher educational status
     df[0] = df[0] / divide_total[0]
 
+    # set the index to the index column instead of tract_code
     df.set_index("index", inplace=True)
+
+    # drop all rows that contain the value 0 as we can infer they contain missing information
+    df = df[df[0] != 0.0]
 
     return df
 
@@ -160,8 +170,14 @@ def percentage_poverty_data(filename, county_code):
     df = df.loc[['Population for whom poverty status is determined']]
 
     df = df.apply(lambda col: col.str.extract(r'(\d+\.\d+)%').astype(float).sum()) / 100
-    
-    return df.transpose()
+
+    # transpose the dataframe so that the tract codes are the index
+    df = df.transpose()
+
+    # drop all rows that contain the value 0 as we can infer they contain missing information
+    df = df[df[0] != 0.0]
+
+    return df
 
 def unemployment_rate_data(filename, county_code):
 
@@ -179,8 +195,13 @@ def unemployment_rate_data(filename, county_code):
     df = df.loc[['Population 16 years and over']]
 
     df = df.apply(lambda col: col.str.extract(r'(\d+\.\d+)%').astype(float).sum()) / 100
+
+    df = df.transpose()
+
+    # drop all rows that contain the value 0 as we can infer they contain missing information
+    df = df[df[0] != 0.0]
     
-    return df.transpose()
+    return df
 
 
 
@@ -232,14 +253,21 @@ def race_diversity_data(filename, county_code):
         index_df.loc[tract_code, 'race_index'] = simpson_index
         tracts_simpson.append((tract_code, race_population))
 
+    # drop all rows that contain the value 0 as we can infer they contain missing information
+    index_df = index_df[index_df['race_index'] != 0.0]
+
     return index_df
 
 
 
 
 if __name__ == "__main__":
-    age_data('~/Desktop/seattle_census_data/seattle_age.csv', '53033')
-    #educational_attainment_data('~/Desktop/seattle_census_data/seattle_educational_attainment.csv', '53033')
-    #percentage_poverty_data('~/Desktop/seattle_census_data/seattle_percent_poverty.csv', '53033')
-    #unemployment_rate_data('~/Desktop/seattle_census_data/seattle_unemployment.csv', '53033')
-    #race_diversity_data('~/Desktop/seattle_census_data/seattle_race.csv', '53033')
+    median_age_data('~/Desktop/oakland_census_data/oakland_median_age.csv', '06001')
+    age_data('~/Desktop/oakland_census_data/oakland_age.csv', '06001')
+    educational_attainment_data('~/Desktop/oakland_census_data/oakland_education.csv', '06001')
+    percentage_poverty_data('~/Desktop/oakland_census_data/oakland_poverty.csv', '06001')
+    unemployment_rate_data('~/Desktop/oakland_census_data/oakland_unemployment.csv', '06001')
+    race_diversity_data('~/Desktop/oakland_census_data/oakland_race.csv', '06001')
+    median_property_data = single_row_data(f'~/Desktop/oakland_census_data/oakland_median_property.csv', '06001')
+    median_income_data = single_row_data(f'~/Desktop/oakland_census_data/oakland_median_income.csv', '06001')
+    income_ineq_data = single_row_data(f'~/Desktop/oakland_census_data/oakland_income_ineq.csv', '06001')

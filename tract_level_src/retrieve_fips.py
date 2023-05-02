@@ -1,10 +1,8 @@
-import pandas as pd 
 from sys import argv
 import requests
-import json
 import csv
 
-wanted_columns= ["id", "tract_code", "host_id", "host_since", "host_total_listings_count", "reviews_per_month", "first_review", "last_review", "number_of_reviews", "calendar_last_scraped"] # we will use calendar_last_scraped - first_reviews / number_of_reviews to get reviews_per_month
+wanted_columns= ["id", "tract_code", "host_id", "host_since", "host_total_listings_count", "reviews_per_month", "first_review", "last_review", "number_of_reviews", "calendar_last_scraped"] 
 
 def get_tract_code(latitude,longitude):
     api = 'https://geo.fcc.gov/api/census/area'
@@ -25,15 +23,21 @@ def tracts_to_csv(listings, skiprows=0, mode='w'):
                 writer.writeheader()
             count = 0
             for row in csvreader: 
+                # used to skip the first n rows of the csv file if the script is interrupted
                 if count < int(skiprows):
                     count += 1
                     continue
                 tract_code = get_tract_code(row['latitude'], row['longitude'])
                 print(tract_code)
-                writer.writerow({"id": row['id'], "tract_code": tract_code, "host_id": row['host_id'], "host_since": row['host_since'], "host_total_listings_count": row['host_total_listings_count'], "reviews_per_month": row['reviews_per_month'], "first_review": row['first_review'], "last_review": row['last_review'] , "number_of_reviews": row['number_of_reviews'], "calendar_last_scraped": row['calendar_last_scraped']}) # we will use calendar_last_scraped - first_reviews / number_of_reviews to get reviews_per_month
+                writer.writerow({"id": row['id'], "tract_code": tract_code, "host_id": row['host_id'], "host_since": row['host_since'], "host_total_listings_count": row['host_total_listings_count'], "reviews_per_month": row['reviews_per_month'], "first_review": row['first_review'], "last_review": row['last_review'] , "number_of_reviews": row['number_of_reviews'], "calendar_last_scraped": row['calendar_last_scraped']}) 
 
 
 
+''' takes in as arguments 
+1) the original listings.csv file, 
+2) the number of rows to skip (if the script is interrupted)
+3) the mode (w for write, a for append) 
+'''
 
 if __name__ == "__main__":
    tracts_to_csv(argv[1], argv[2], argv[3]) 

@@ -1,6 +1,13 @@
 import pandas as pd
 from sys import argv
 
+'''takes as arguments
+
+1) census_tract_listings.csv 
+2) filtered_review.csv 
+
+and produces a new reviews.csv file with a new column 'tract_code' that corresponds to the census tract of the review'''
+
 # Read in the CSV files as DataFrames
 def merged_csv(listings, reviews):
 	# read in both csv files

@@ -9,7 +9,6 @@ def filter_dates(reviews):
     df.to_csv('filtered_reviews.csv', encoding='utf-8')
 
 if  __name__ == "__main__":
-    for i in range (1, len(argv)):
-        filter_dates(argv[i])
+    filter_dates(argv[1])
 
     
