@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import shapiro
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime
 import re
 import census_data
@@ -18,9 +17,10 @@ the dataframes and csv files for the required metrics.
 
 The file must be run from the command line with the following arguments:
     1. The merged and filtered reviews.csv file (containing the tract code associated with each review) -> used to calculate cumulative # reviews per month
-    2. The merged listings.csv file (containing the tract code associated with each listing) -> used to calculate cumulative # new hosts per month
-    3. The name of the city which the reviews are in
-    4. The 5 digit FIPS code of the state and county which the city is in (used for extracting census data)
+    2. The merged and unfiltered reviews.csv file (containing the tract code associated with each review) -> used to calculate cumulative # listings per month
+    3. The merged listings.csv file (containing the tract code associated with each listing) -> used to calculate cumulative # new hosts per month
+    4. The name of the city which the reviews are in
+    5. The 5 digit FIPS code of the state and county which the city is in (used for extracting census data)
 '''
 
 def separate_dates(reviews):
@@ -95,13 +95,12 @@ def count_cumulative_reviews_per_month(start_date, end_date, df):
     # plot a histogram on the cumulative number of reviews per month for the entire city
     ax = counts_df_city.plot(kind='bar', figsize=(15,10))
     plt.title('Cumulative Number of Reviews per Month for the Entire City')
-    ax.set_xticklabels('')
-    ax.set_xticks([i+0.5 for i in range(len(counts_df_city.index))], minor=True)
-    ax.set_xticklabels([i for i in counts_df_city.index], rotation=45, fontsize=6, minor=True)
+    ax.set_xticklabels([i for i in counts_df_city.index], rotation=45, fontsize=6)
     plt.show()
+    plt.savefig("cumreviews.pdf", format="pdf", bbox_inches="tight")
 
     # create a new dataframe to store the slope for each tract
-    slopes_df = pd.DataFrame(columns=['tract_code', 'review_slope'])
+    slopes_df = pd.DataFrame(columns=['tract_code', 'slope'])
 
     # iterate through each tract and count the cumulative number of over the given time period
     for tract in df['tract_code'].unique():
@@ -129,70 +128,170 @@ def count_cumulative_reviews_per_month(start_date, end_date, df):
         # store the slope in the slopes_df
         slopes_df = slopes_df.append({'tract_code': tract, 'slope': lr.coef_[0][0]}, ignore_index=True)
 
-
     # return the slopes_df
     return slopes_df
 
 
-def count_new_listings_per_month(start_date, end_date, df):
+def count_new_hosts_per_month(start_date, end_date, df):  
+    # sort the dataframe by host_since date for better visualizations during debugging and verification of data
+    df = df.sort_values(by=['host_since'], ascending=True)
+    
     #convert the start_date and end_date to datetime objects
     start_date = datetime.fromisoformat(start_date)
     end_date = datetime.fromisoformat(end_date)
 
-    # create a new dataframe with date as the index and count as the column
-    date_range = pd.date_range(start=start_date, end=end_date, freq='MS')
-    counts_df = pd.DataFrame(index=date_range, columns=['count'])
+    # convert the host_since column to a datetime object in order to be able to compare it to the start_date and end_date
+    df['host_since'] = pd.to_datetime(df['host_since'])
 
-    # count the number of new hosts added each month between the given time interval (FOR ENTIRE CITY / ALL TRACTS)
-    city_df = df.groupby(pd.Grouper(key='date', freq='M'))['listing_id'].nunique().reset_index()
-    city_df = city_df.rename(columns={'listing_id': 'new_hosts'})
-    city_df = city_df[(city_df['date'] >= start_date) & (city_df['date'] <= end_date)]
+    # Filter the DataFrame to include only listings within the specified period
+    city_df = df[(df['host_since'] >= start_date) & (df['host_since'] <= end_date)]
+
+    # Group the DataFrame by tract_code and host_since, and count the number of unique host_id values
+    host_counts = city_df.groupby(pd.Grouper(key='host_since', freq='MS'))['host_id'].nunique()
+
+    # Reset the index to turn the groupby results into a DataFrame
+    host_counts = host_counts.reset_index()
+
+    # Rename the host_id column to reflect that it contains counts of hosts
+    host_counts = host_counts.rename(columns={'host_id': 'host_count', 'host_since': 'date'})
+
+    # create a new column to store the cumulative number of hosts
+    host_counts['cumulative_host_count'] = host_counts['host_count'].cumsum()
+
+    # store the number of total hosts entering the market in the given time period (entire city)
+    total_hosts = host_counts['host_count'].sum()
+    print(f'Total_hosts: {total_hosts}')
 
     # create a new dataframe to store the slope for each tract
     slopes_df = pd.DataFrame(columns=['tract_code', 'hosts_slope'])
-
 
     # iterate through each tract and count the number of new hosts added each month between the given time interval
     for tract in df['tract_code'].unique():
         tract_df = df[df['tract_code'] == tract]
         
-        # create a new dataframe with date as the index and count as the column
-        date_range = pd.date_range(start=start_date, end=end_date, freq='M')
-        counts_df = pd.DataFrame(index=date_range, columns=['count'])
-        
-        # iterate through each month and count the number of reviews
-        for month_start in date_range:
-            month_end = month_start + pd.offsets.MonthEnd(0)
-            month_count = len(tract_df[(tract_df['date'] >= month_start) & (tract_df['date'] <= month_end)].groupby(pd.Grouper(key='date', freq='M'))['listing_id'].nunique().reset_index())
-            counts_df.loc[month_start, 'count'] = month_count
+        # Filter the DataFrame to include only listings within the specified period
+        tract_df = tract_df[(tract_df['host_since'] >= start_date) & (tract_df['host_since'] <= end_date)]
+
+        # Group the DataFrame by tract_code and host_since, and count the number of unique host_id values
+        tract_host_counts = tract_df.groupby(pd.Grouper(key='host_since', freq='MS'))['host_id'].nunique()
+
+        # Reset the index to turn the groupby results into a DataFrame
+        tract_host_counts = tract_host_counts.reset_index()
+
+        # Rename the host_id column to reflect that it contains counts of hosts
+        tract_host_counts = tract_host_counts.rename(columns={'host_id': 'host_count', 'host_since': 'date'})
+
+        tract_host_counts['cumulative_host_count'] = tract_host_counts['host_count'].cumsum()
+
+        tract_host_counts['tract_code'] = tract
         
         # fill in any missing values with 0
-        counts_df = counts_df.fillna(0)
+        tract_host_counts = tract_host_counts.fillna(0)
 
-        # store the dates in ISO format before converting them to ordinal which will be used to label the x-axis on the plot
-        plot_X = counts_df.index
+        # convert the dates to a time series in order to be able to use them in the linear regression
+        tract_host_counts['date'] = pd.to_datetime(tract_host_counts['date'])
+        tract_host_counts.index = [i for i in range(1,len(tract_host_counts['date'])+1)]
 
-         # convert the dates to a time series in order to be able to use them in the linear regression
+        # fit a linear regression to the counts_df
+        X = tract_host_counts['date'].values.reshape(-1, 1)
+        y = tract_host_counts['cumulative_host_count'].values.reshape(-1,1)
+        lr = LinearRegression().fit(X, y)
+        
+        # store the slope in the slopes_df
+        slopes_df = slopes_df.append({'tract_code': tract, 'hosts_slope': lr.coef_[0][0]}, ignore_index=True)
+    
+    # return the slopes_df
+    return slopes_df
+
+
+def count_new_listings_per_month(start_date, end_date, df):
+    ''' Uses the merged_reviews.csv to check for each listing_id when the date of the first review was for a given listing id, and then counts the number of new listings added each month between the given time interval'''
+
+    # create a new dataframe with date as the index and cumulative count as the column
+    date_range = pd.date_range(start=start_date, end=end_date, freq='MS')
+
+    df = pd.read_csv(df, dtype={'tract_code' : str})
+
+    # keep only the first instance of each review, which corresponds to the date the listing was added
+    city_df = df.sort_values('date').drop_duplicates('listing_id')
+
+    # rename the date column to 'first_review_date'
+    city_df = city_df.rename(columns={'date': 'first_review_date'})
+
+    # create a new column 'month_added' that is the month of the first review
+    city_df['month_added'] = pd.to_datetime(city_df['first_review_date']).dt.to_period('M')
+
+    # filter the dataframe to include only listings within the specified period
+    city_df = city_df[(city_df['first_review_date'] >= start_date) & (city_df['first_review_date'] <= end_date)]
+
+    # group by tract_code and month_added, then count the number of unique listings
+    city_month_counts = city_df.groupby(['month_added']).agg({'listing_id': 'nunique'}).reset_index()
+
+    # rename the listing_id column to 'new_listings'
+    city_month_counts = city_month_counts.rename(columns={'listing_id': 'new_listings'})
+
+    # keep track of the cumulative number of new listings
+    city_month_counts['cumulative_new_listings'] = city_month_counts['new_listings'].cumsum()
+
+    # create a new dataframe to store the slope for each tract
+    slopes_df = pd.DataFrame(columns=['tract_code', 'slope'])
+
+    for tract in df['tract_code'].unique():
+        tract_df = df[df['tract_code'] == tract]
+
+        # drop duplicate listings and keep only the row with the earliest date (corresponding to the date the listings was added)
+        tract_df = tract_df.sort_values('date').drop_duplicates('listing_id')
+
+        # rename the date column to 'first_review_date'
+        tract_df = tract_df.rename(columns={'date': 'first_review_date'})
+
+        # create a new column 'month_added' that is the month of the first review
+        tract_df['month_added'] = pd.to_datetime(tract_df['first_review_date']).dt.to_period('M')
+
+        # filter the dataframe to include only listings within the specified period
+        tract_df = tract_df[(tract_df['first_review_date'] >= start_date) & (tract_df['first_review_date'] <= end_date)]
+
+        # group by tract_code and month_added, then count the number of unique listings
+        tract_month_counts = tract_df.groupby(['month_added']).agg({'listing_id': 'nunique'}).reset_index()
+
+        # rename the listing_id column to 'new_listings'
+        tract_month_counts = tract_month_counts.rename(columns={'listing_id': 'new_listings'})
+
+        # keep track of the cumulative number of new listings
+        tract_month_counts['cumulative_new_listings'] = tract_month_counts['new_listings'].cumsum()
+
+
+        ''' Although we already calculate the cumulative number of new listings above, the tract_month_counts dataframe misses months inbetween where there are no new listings added. 
+        We need to calculate the cumulative number of listings for EACH month (even if there is no new listings added!) in the given time period in order to be able to use the linear regression to calculate the slope.'''
+
+        counts_df = pd.DataFrame(index=date_range, columns=['cumulative_new_listings'])
+
+        # iterate through each month and count the cumulative number of reviews
+        for month_start in date_range:
+            month_end = month_start + pd.offsets.MonthEnd(0)
+            month_end = month_end.strftime('%Y-%m-%d')
+            cum_count = len(tract_df[(tract_df['first_review_date'] >= start_date) & (tract_df['first_review_date'] <= month_end)])
+            counts_df.loc[month_start, 'cumulative_new_listings'] = cum_count
+
+        # convert the dates to a time series in order to be able to use them in the linear regression
         counts_df.index = pd.to_datetime(counts_df.index)
         counts_df.index = [i for i in range(1,len(counts_df.index)+1)]
 
         # fit a linear regression to the counts_df
         X = counts_df.index.values.reshape(-1, 1)
-        y = counts_df['count'].values.reshape(-1,1)
+        y = counts_df['cumulative_new_listings'].values.reshape(-1,1)
         lr = LinearRegression().fit(X, y)
-        
+
         # store the slope in the slopes_df
         slopes_df = slopes_df.append({'tract_code': tract, 'slope': lr.coef_[0][0]}, ignore_index=True)
-    
-    # return the slopes_df
+
     return slopes_df
+
 
 def plot_standardized_normal_distribution(df):
     ''' 
     takes in as input the slopes_df calculated from the count_cumulative_reviews_per_month function and returns a normally distributed version of the slopes inside the slopes_df
     '''
-
-    scaler = MinMaxScaler()
 
     transformations = [
     ("original", lambda x: x),
@@ -230,21 +329,19 @@ def plot_standardized_normal_distribution(df):
         transformed_df = column.transform([np.log1p, np.square, np.sqrt])
         transformed_df['untransformed'] = column
 
-        # move untransformed column to the front of the dataframe
-        first_column = transformed_df.pop('untransformed')
-        transformed_df.insert(0, 'untransformed', first_column)
-        transformed_df.hist(bins = 20, figsize=(10,10), layout=(3,2), edgecolor='black')
-        plt.suptitle(f'Histograms of Transformed Data for {col}', size=16)
-        plt.show()
+        # # move untransformed column to the front of the dataframe
+        # first_column = transformed_df.pop('untransformed')
+        # transformed_df.insert(0, 'untransformed', first_column)
+        # transformed_df.hist(bins = 20, figsize=(10,10), layout=(3,2), edgecolor='black')
+        # plt.suptitle(f'Histograms of Transformed Data for {col}', size=16)
+        # plt.show()
 
         if col != 'slope':
             # Standardize the data
             df[col] = (df[col] - np.mean(df[col])) / np.std(df[col])
-
-        # normalize the data between 0 and 1
-        #df[col] = scaler.fit_transform(df[col].values.reshape(-1,1))
     
     return df
+
 
 def merge_dataframes(df_a, df_b, new_column_name):
     '''function used to create the final dataframe containing the census data for each tract the slope (the metric we defined) for each tract on each row'''
@@ -268,53 +365,112 @@ def merge_dataframes(df_a, df_b, new_column_name):
 
     return new_df
 
+
+''' Description: Read in the census data and merge it with the reviews and listings dataframes, which contain the metrics we will be analyzing
+
+    Parameters: city_name -> The name of the city we are analyzing to be used in the census data file paths
+                county_code -> The county code of the city we are analyzing (used for pre-processing of census data)
+                reviews_df -> The dataframe containing the reviews metric for the city we are analyzing
+                listings_df -> The dataframe containing the listings metric for the city we are analyzing
+
+    Return: reviews_df -> The reviews dataframe with the census data merged into it
+            listings_df -> The listings dataframe with the census data merged into it
+'''
+def read_in_and_merge_census_data(city_name, county_code, reviews_df, listings_df):
+    # Read in the census data
+    median_property_data = census_data.single_row_data(f'census_data/{city_name}_census_data/{city_name}_median_property.csv', f'{county_code}')
+    median_income_data = census_data.single_row_data(f'census_data/{city_name}_census_data/{city_name}_median_income.csv', f'{county_code}')
+    income_ineq_data = census_data.single_row_data(f'census_data/{city_name}_census_data/{city_name}_income_ineq.csv', f'{county_code}')
+    median_age_data = census_data.median_age_data(f'census_data/{city_name}_census_data/{city_name}_median_age.csv', f'{county_code}')
+    age_data = census_data.age_data(f'census_data/{city_name}_census_data/{city_name}_age.csv', f'{county_code}')
+    education_data = census_data.educational_attainment_data(f'census_data/{city_name}_census_data/{city_name}_education.csv', f'{county_code}')
+    poverty_data = census_data.percentage_poverty_data(f'census_data/{city_name}_census_data/{city_name}_poverty.csv', f'{county_code}')
+    unemployment_data = census_data.unemployment_rate_data(f'census_data/{city_name}_census_data/{city_name}_unemployment.csv', f'{county_code}')
+    race_data = census_data.race_diversity_data(f'census_data/{city_name}_census_data/{city_name}_race.csv', f'{county_code}')
+
+    # Merge the reviews_df with the census data dataframes
+    reviews_df = merge_dataframes(reviews_df, median_property_data, 'median_property_value')
+    reviews_df = merge_dataframes(reviews_df, median_income_data, 'median_income')
+    reviews_df = merge_dataframes(reviews_df, income_ineq_data, 'income_ineq')
+    reviews_df = merge_dataframes(reviews_df, median_age_data, 'median_age')
+    reviews_df = merge_dataframes(reviews_df, age_data, 'young_percentage')
+    reviews_df = merge_dataframes(reviews_df, education_data, 'education')
+    reviews_df = merge_dataframes(reviews_df, poverty_data, 'poverty_percentage')
+    reviews_df = merge_dataframes(reviews_df, unemployment_data, 'unemployment')
+    reviews_df = merge_dataframes(reviews_df, race_data, 'race_index')
+
+    # Merge the listings_df with the census data dataframes
+    listings_df = merge_dataframes(listings_df, median_property_data, 'median_property_value')
+    listings_df = merge_dataframes(listings_df, median_income_data, 'median_income')
+    listings_df = merge_dataframes(listings_df, income_ineq_data, 'income_ineq')
+    listings_df = merge_dataframes(listings_df, median_age_data, 'median_age')
+    listings_df = merge_dataframes(listings_df, age_data, 'young_percentage')
+    listings_df = merge_dataframes(listings_df, education_data, 'education')
+    listings_df = merge_dataframes(listings_df, poverty_data, 'poverty_percentage')
+    listings_df = merge_dataframes(listings_df, unemployment_data, 'unemployment')
+    listings_df = merge_dataframes(listings_df, race_data, 'race_index')
+
+    return reviews_df, listings_df
+
+
+''' Description: Convert the columns in the reviews and listings dataframes to numeric values, remove any rows with NaN values or values of 0 (as these will cause issues with the analysis), and remove any rows with a slope value of 0.
+
+    Parameters: reviews_df -> The dataframe containing the reviews metric for the city we are analyzing
+                listings_df -> The dataframe containing the listings metric for the city we are analyzing
+    
+    Return: reviews_df -> The reviews dataframe with the columns converted to numeric values and NaN and 0 values removed
+            listings_df -> The listings dataframe with the columns converted to numeric values and NaN and 0 values removed
+            reviews_nan_df -> The reviews dataframe with only the NaN values (i.e. the rows that were dropped)
+            listings_nan_df -> The listings dataframe with only the NaN values (i.e. the rows that were dropped)
+'''
+def cleanse_data(reviews_df, listings_df):
+    # Convert the columns to numeric values
+    reviews_df[['slope', 'median_income', 'median_property_value', 'income_ineq', 'median_age', 'young_percentage', 'education', 'poverty_percentage', 'unemployment', 'race_index']] = reviews_df[['slope', 'median_property_value', 'median_income', 'income_ineq', 'median_age', 'young_percentage', 'education', 'poverty_percentage', 'unemployment', 'race_index']].apply(pd.to_numeric, errors='coerce')
+
+    listings_df[['slope', 'median_income', 'median_property_value', 'income_ineq', 'median_age', 'young_percentage', 'education', 'poverty_percentage', 'unemployment', 'race_index']] = listings_df[['slope', 'median_property_value', 'median_income', 'income_ineq', 'median_age', 'young_percentage', 'education', 'poverty_percentage', 'unemployment', 'race_index']].apply(pd.to_numeric, errors='coerce')
+
+    # Get rid of rows with nan values and slopes that equal to 0.0, meanining that there is an insignificant amount of reviews to reach a conclusion about that tract
+    clean_reviews_df = reviews_df.dropna()
+    clean_reviews_df = clean_reviews_df[clean_reviews_df['slope'] != 0.0]
+
+    clean_listings_df = listings_df.dropna()
+    clean_listings_df = clean_listings_df[clean_listings_df['slope'] != 0.0]
+
+    # Keep track of the dropped rows in another dataframe
+    reviews_nan_df = reviews_df[~reviews_df.index.isin(clean_reviews_df.index)]
+    listings_nan_df = listings_df[~listings_df.index.isin(clean_listings_df.index)]
+
+    print(clean_reviews_df.head())
+    print(clean_listings_df.head())
+    print(reviews_nan_df.head())
+    print(listings_nan_df.head())
+
+    return clean_reviews_df, clean_listings_df, reviews_nan_df, listings_nan_df
+
 if __name__ == "__main__":
-    pd.set_option('display.max_rows', 500)
-    pd.set_option('display.max_columns', 500)
     reviews_df = separate_dates(argv[1])
     reviews_df = reviews_df.sort_values(by='tract_code')
-    count_absolute_reviews_per_month('2018-01-01', '2022-12-01', reviews_df)
-    #slopes_df = count_cumulative_reviews_per_month('2018-01-01', '2022-12-01', reviews_df)
-    # slopes_df['slope'] = slopes_df['slope'].map('{:,.5f}'.format)
+
+    reviews_df = count_cumulative_reviews_per_month('2021-03-01', '2022-12-31', reviews_df)
+    listings_df = count_new_listings_per_month('2021-03-01', '2022-12-31', argv[2])
+    #hosts_df = pd.read_csv(argv[3], dtype={'tract_code': str})  
+    #reviews_df['slope'] = reviews_df['slope'].map('{:,.5f}'.format)
    
-    # # Read in the census data
-    # median_property_data = census_data.single_row_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_median_property.csv', f'{argv[3]}')
-    # median_income_data = census_data.single_row_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_median_income.csv', f'{argv[3]}')
-    # income_ineq_data = census_data.single_row_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_income_ineq.csv', f'{argv[3]}')
-    # median_age_data = census_data.median_age_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_median_age.csv', f'{argv[3]}')
-    # age_data = census_data.age_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_age.csv', f'{argv[3]}')
-    # education_data = census_data.educational_attainment_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_education.csv', f'{argv[3]}')
-    # poverty_data = census_data.percentage_poverty_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_poverty.csv', f'{argv[3]}')
-    # unemployment_data = census_data.unemployment_rate_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_unemployment.csv', f'{argv[3]}')
-    # race_data = census_data.race_diversity_data(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_race.csv', f'{argv[3]}')
+    # Read in the census data and merge it into the reviews and listings dataframes
+    reviews_df, listings_df = read_in_and_merge_census_data(argv[4], argv[5], reviews_df, listings_df)
 
-    # # Merge the slopes_df with the census data dataframes
-    # slopes_df = merge_dataframes(slopes_df, median_property_data, 'median_property_value')
-    # slopes_df = merge_dataframes(slopes_df, median_income_data, 'median_income')
-    # slopes_df = merge_dataframes(slopes_df, income_ineq_data, 'income_ineq')
-    # slopes_df = merge_dataframes(slopes_df, median_age_data, 'median_age')
-    # slopes_df = merge_dataframes(slopes_df, age_data, 'young_percentage')
-    # slopes_df = merge_dataframes(slopes_df, education_data, 'education')
-    # slopes_df = merge_dataframes(slopes_df, poverty_data, 'poverty_percentage')
-    # slopes_df = merge_dataframes(slopes_df, unemployment_data, 'unemployment')
-    # slopes_df = merge_dataframes(slopes_df, race_data, 'race_index')
+    # Cleanse the data by converting the columns to numeric values and removing any rows with NaN values or values of 0
+    clean_reviews_df, clean_listings_df, reviews_nan_df, listings_nan_df = cleanse_data(reviews_df, listings_df)
 
-    # slopes_df[['slope', 'median_income', 'median_property_value', 'income_ineq', 'median_age', 'young_percentage', 'education', 'poverty_percentage', 'unemployment', 'race_index']] = slopes_df[['slope', 'median_property_value', 'median_income', 'income_ineq', 'median_age', 'young_percentage', 'education', 'poverty_percentage', 'unemployment', 'race_index']].apply(pd.to_numeric, errors='coerce')
+    # Standardize and normalize the data after dropping the rows with nan values and cleaning it up
+    clean_reviews_df = plot_standardized_normal_distribution(clean_reviews_df)
+    clean_listings_df = plot_standardized_normal_distribution(clean_listings_df)
 
-    # # Get rid of rows with nan values and slopes that equal to 0.0, meanining that there is an insignificant amount of reviews to reach a conclusion about that tract
-    # clean_df = slopes_df.dropna()
-    # clean_df = clean_df[clean_df['slope'] != 0.0]
+    # Write the resulting dataframe containing the metrics calculated and the census data for regression to a csv file
+    clean_reviews_df.to_csv(f'regression_data/{argv[4]}_census_data/{argv[4]}_reviews_data.csv', index=False, sep=',', encoding='utf-8', na_rep='NA')
+    clean_listings_df.to_csv(f'regression_data/{argv[4]}_census_data/{argv[4]}_listings_data.csv', index=False, sep=',', encoding='utf-8', na_rep='NA')
 
-    # # Keep track of the dropped rows in another dataframe
-    # nan_df = slopes_df[~slopes_df.index.isin(clean_df.index)]
+    # Write the dataframe containing the rows that were dropped to a csv file
+    reviews_nan_df.to_csv(f'regression_data/{argv[4]}_census_data/{argv[4]}_reviews_dropped.csv', index=False, sep=',', encoding='utf-8', na_rep='NA')
+    listings_nan_df.to_csv(f'regression_data/{argv[4]}_census_data/{argv[4]}_listings_dropped.csv', index=False, sep=',', encoding='utf-8', na_rep='NA')
 
-    # # Standardize and normalize the data after dropping the rows with nan values and cleaning it up
-    # clean_df = plot_standardized_normal_distribution(clean_df)
-
-    # print(clean_df.head(20))
-
-    # # Write the resulting dataframe containing the metrics calculated and the census data for regression to a csv file
-    # clean_df.to_csv(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_regdata.csv', index=False, sep=',', encoding='utf-8', na_rep='NA')
-
-    # # Write the dataframe containing the rows that were dropped to a csv file
-    # nan_df.to_csv(f'~/Desktop/{argv[2]}_census_data/{argv[2]}_dropped.csv', index=False, sep=',', encoding='utf-8', na_rep='NA')
